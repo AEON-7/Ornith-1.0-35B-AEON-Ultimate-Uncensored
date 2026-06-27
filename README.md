@@ -4,7 +4,8 @@ Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://hu
 
 | | |
 |---|---|
-| **BF16** | [`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16`](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16) |
+| **BF16** (~66 GB, any vLLM) | [`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16`](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16) |
+| **NVFP4** (~23.7 GB, near-lossless, Blackwell) | [`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4`](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4) |
 | License | MIT (inherited from base) |
 
 ## TL;DR
@@ -26,7 +27,7 @@ Thinking model (`<think>…</think>` every turn). Sampling: `temperature 0.6, to
 1. **SSM `conv1d` outlier repair** — rescale outlier blocks (layers 36/37) pre-abliteration to prevent coherence collapse.
 2. **Abliteration** — `abliterix` v1.9: grimjim norm-preserving biprojection + **Expert-Granular Abliteration** across all 256 fused experts + shared expert + router suppression; Optuna refusals-vs-KL search. Q/K/V untouched (`attn_output_gate`); GatedDeltaNet/SSM internals + vision tower **not modified**. Recipe: [`config/ornith_35b.toml`](config/ornith_35b.toml).
 3. **Gentle-knee selection** — the lowest-refusal trial was *over-abliterated* (word-salad on real generation). Shipped a 170× lighter expert edit for the same refusal removal, verified coherent.
-4. **Export** bf16 on a box where 70 GB fits in memory (cloud H200; GB10's 121 GB unified pool cannot edit-in-memory). **Quantization note:** FP8 is *not viable* on this hybrid GatedDeltaNet-MoE via standard vLLM — W8A8 FP8 degrades coherence (FP8 activations hurt the reasoning path); W8A16 weight-only FP8 has no ScaledMM kernel. NVFP4 on Blackwell (B200) is the proven low-precision path for this family.
+4. **Export + quantize.** Export bf16 on a box where 70 GB fits in memory (GB10's 121 GB unified pool cannot edit-in-memory). **NVFP4 (shipped):** MLP-only weight-only NVFP4 (W4A16) via llm-compressor → compressed-tensors — experts + shared-MLP in NVFP4, attention + GatedDeltaNet + vision + gates + embeds in BF16. Quantized on a **B200 (Blackwell)**, validated served on a DGX Spark (GB10): **identical** to BF16 — agentic-coding 0.833 (15/18), 0 refusals, 0 degenerate, ~23.7 GB. Weight-only (BF16 activations) is the key: the NVFP4 reasoning penalty comes from FP4 *activations* (W4A4), which W4A16 avoids. **FP8 is *not viable*** on this hybrid arch (W8A8 degrades coherence; W8A16 has no ScaledMM kernel) — NVFP4 is the low-precision path.
 
 ## Validation
 | Metric | Base Ornith-1.0-35B | This model |
