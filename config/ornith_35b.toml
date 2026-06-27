@@ -1,0 +1,84 @@
+# Ornith-1.0-35B (deepreinforce-ai) abliteration — PASS 1 (anchor recipe)
+# Base = Qwen3.6-35B-A3B (verified by weight-correlation), arch qwen3_5_moe:
+#   256 routed experts (fused) + 1 shared, top-8, 40 layers (30 GatedDeltaNet
+#   linear-attn + 10 full-attn), hidden=2048, vision tower (untouched).
+# Input = /models/Ornith-1.0-35B-repaired (Stage-1 conv1d outlier repair: L36/L37).
+# Recipe anchored on the proven sibling configs/qwen3.6_35b_a3b_v5.toml, adapted
+# for a single DGX Spark GB10 (121GB unified) + local keyword detection (no API).
+
+seed = 1234
+non_interactive = true
+
+[model]
+model_id = "/models/Ornith-1.0-35B-repaired"
+dtype_fallback_order = ["bfloat16"]
+# GB10 (121GB unified) cannot fit a 70GB bf16 model + abliterix overhead during
+# load (OOM at 92%). NF4 search (~18GB, proven for this family in qwen3.5_122b_4bit)
+# leaves ~100GB headroom; final model is re-exported in bf16 (export_model.py loads
+# the bf16 base + applies the searched params). Documented abliterix GB10 fallback.
+quant_method = "bnb_4bit"
+use_torch_compile = false
+device_map = "cuda:0"   # BNB 4-bit doesn't support CPU spill; pin to the one device.
+trust_remote_code = true
+
+[inference]
+batch_size = 0            # auto-tune
+max_batch_size = 8        # NF4 model is ~18GB -> ample headroom on GB10 for batch 8
+max_gen_tokens = 100      # refusal verdict lands in first ~30 tokens
+
+[steering]
+vector_method = "mean"
+decay_kernel = "gaussian"          # v5b winner (sharper peak than linear)
+orthogonal_projection = true
+projected_abliteration = true      # grimjim NPBA — preserve helpful component
+winsorize_vectors = true
+winsorize_quantile = 0.995
+weight_normalization = "none"
+n_directions = 1
+strength_range = [0.5, 6.0]        # v5b sweet spot
+# attn_output_gate=true doubles q_proj out-dim (breaks projection math) AND
+# wastes search budget -> disable q/k/v (only o_proj/out_proj + MoE down_proj steered).
+disabled_components = ["attn.q_proj", "attn.k_proj", "attn.v_proj"]
+
+[experts]
+# MoE router suppression + EGA on the fused 256-expert down_proj.
+max_suppress = 15
+router_bias_range = [-15.0, 0.0]
+ablation_weight_range = [0.0, 8.0]
+
+[optimization]
+num_trials = 50
+num_warmup_trials = 8
+checkpoint_dir = "/work/checkpoints/ornith_p1"
+
+[kl]
+scale = 1.0
+token_count = 3
+target = 0.005
+prune_threshold = 0.5     # kill trials at 100x KL target early
+
+[detection]
+llm_judge = false         # keyword detection for the search; WildGuard validation post-hoc
+
+[benign_prompts]
+dataset = "/work/datasets/good_1000"
+split = "train[:800]"
+column = "prompt"
+
+[target_prompts]
+dataset = "/work/datasets/harmful_1000"
+split = "train[:800]"
+column = "prompt"
+
+[benign_eval_prompts]
+dataset = "/work/datasets/good_1000"
+split = "train[800:900]"
+column = "prompt"
+
+[target_eval_prompts]
+dataset = "/work/datasets/harmful_1000"
+split = "train[800:900]"
+column = "prompt"
+
+[display]
+print_responses = false
