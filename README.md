@@ -12,6 +12,24 @@ Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://hu
 - **0 / 80 refusals (0.0%)** on diverse harmful prompts (base ≈ 94/100) — fully uncensored.
 - **0 coding-capability loss** — agentic pass@1 **0.833, identical to the base** family-by-family. Near-lossless (KL ≈ 0.0014).
 - Hybrid `qwen3_5_moe`: 40 layers (30 GatedDeltaNet + 10 full-attn), 256 experts + shared (A3B), vision, 256K ctx, thinking model.
+- **NVFP4 + DFlash on a DGX Spark: 3.05× faster decode** (avg 93 vs 30 tok/s) and **2.75× prefill** vs a stock-vLLM BF16 deploy.
+
+## Performance — DGX Spark (GB10), single-stream
+
+The optimized deploy (**AEON container + NVFP4 + DFlash n=6**) vs a naive **stock vLLM + BF16** deploy on the same Spark:
+
+| Workload | Stock vLLM (BF16) | AEON (NVFP4 + DFlash) | Speedup |
+|---|---|---|---|
+| Coding | 30.8 tok/s · 237 ms | **77.1 · 94 ms** | **2.5×** |
+| Reasoning | 30.6 · 247 ms | **107.0 · 93 ms** | **3.5×** |
+| Math | 30.5 · 221 ms | **119.0 · 88 ms** | **3.9×** |
+| Prose | 30.4 · 193 ms | **70.3 · 91 ms** | **2.3×** |
+| Avg decode | 30.6 | **93.3** | **3.05×** |
+| Prefill | 3,517 tok/s | **9,661 tok/s** | **2.75×** |
+
+![Decode by category](benchmarks/decode_by_category.png)
+
+▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
 
 ## Quickstart (vLLM)
 ```bash
