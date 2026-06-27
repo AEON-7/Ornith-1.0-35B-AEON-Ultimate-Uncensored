@@ -56,20 +56,22 @@ curl -s http://localhost:8000/v1/chat/completions -H 'content-type: application/
 ```
 Reasoning model: every reply opens `<think>…</think>`. Recommended sampling: **temperature 0.6, top_p 0.95, top_k 20**.
 
-## 6. Performance (measured on DGX Spark GB10)
+## 6. Performance (measured on DGX Spark GB10, single-stream)
 
-Single-stream (c=1), this optimal config vs. a naive **stock vLLM + BF16** deploy on the same Spark:
+Same Spark, same prompts, three stacks — so you can see the **quantization** win and the **optimization** win separately:
 
-| Workload | Stock vLLM (BF16) | **This config (NVFP4 + DFlash)** | Speedup |
+| Workload | BF16 · stock vLLM | NVFP4 · stock vLLM | **NVFP4 + DFlash · AEON (this guide)** |
 |---|---|---|---|
-| Coding | 30.8 tok/s · 237 ms TTFT | **77.1 tok/s · 94 ms** | **2.5×** |
-| Reasoning | 30.6 tok/s · 247 ms | **107.0 tok/s · 93 ms** | **3.5×** |
-| Math | 30.5 tok/s · 221 ms | **119.0 tok/s · 88 ms** | **3.9×** |
-| Prose | 30.4 tok/s · 193 ms | **70.3 tok/s · 91 ms** | **2.3×** |
-| **Avg decode** | **30.6 tok/s** | **93.3 tok/s** | **3.05×** |
-| Prefill (prompt processing) | 3,517 tok/s | **9,661 tok/s** | **2.75×** |
+| Coding | 30.8 tok/s · 237 ms | 38.5 · 70 ms | **77.1 · 94 ms** |
+| Reasoning | 30.6 · 247 ms | 38.4 · 77 ms | **107.0 · 93 ms** |
+| Math | 30.5 · 221 ms | 38.3 · 72 ms | **119.0 · 88 ms** |
+| Prose | 30.4 · 193 ms | 38.3 · 69 ms | **70.3 · 91 ms** |
+| **Avg decode** | 30.6 | 38.4 | **93.3** |
+| Prefill | 3,517 tok/s | 5,203 | **9,661** |
 
-DFlash acceptance is higher on predictable domains (math/reasoning) → larger speedups there. TTFT drops ~2.5× and prefill ~2.75× from the AEON container's kernels + NVFP4. Speedup is largest at c=1 and tapers under heavy concurrency.
+- **Quantization** (BF16 → NVFP4): ~**1.25× decode**, **3.2× faster TTFT**, **1.5× prefill** — and a 64% smaller footprint (66 → 24 GB).
+- **Optimization** (NVFP4 → + DFlash on the AEON container): ~**2.4× decode** (DFlash; biggest on math/reasoning).
+- **Combined vs a naive BF16 deploy:** **3.05× decode · 2.5× TTFT · 2.75× prefill.** Largest at c=1; tapers under heavy concurrency.
 
 ## Notes
 - **Long-running services:** DFlash drafter acceptance can decay over many hours of continuous traffic; restarting the container restores it (or run a periodic health-check that does).

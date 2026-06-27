@@ -16,16 +16,20 @@ Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://hu
 
 ## Performance — DGX Spark (GB10), single-stream
 
-The optimized deploy (**AEON container + NVFP4 + DFlash n=6**) vs a naive **stock vLLM + BF16** deploy on the same Spark:
+Three stacks on the same Spark, so the **quantization** win and the **optimization** win are visible separately:
 
-| Workload | Stock vLLM (BF16) | AEON (NVFP4 + DFlash) | Speedup |
+| Workload | BF16 · stock vLLM | NVFP4 · stock vLLM | NVFP4 + DFlash · AEON |
 |---|---|---|---|
-| Coding | 30.8 tok/s · 237 ms | **77.1 · 94 ms** | **2.5×** |
-| Reasoning | 30.6 · 247 ms | **107.0 · 93 ms** | **3.5×** |
-| Math | 30.5 · 221 ms | **119.0 · 88 ms** | **3.9×** |
-| Prose | 30.4 · 193 ms | **70.3 · 91 ms** | **2.3×** |
-| Avg decode | 30.6 | **93.3** | **3.05×** |
-| Prefill | 3,517 tok/s | **9,661 tok/s** | **2.75×** |
+| Coding | 30.8 tok/s · 237 ms | 38.5 · 70 ms | **77.1 · 94 ms** |
+| Reasoning | 30.6 · 247 ms | 38.4 · 77 ms | **107.0 · 93 ms** |
+| Math | 30.5 · 221 ms | 38.3 · 72 ms | **119.0 · 88 ms** |
+| Prose | 30.4 · 193 ms | 38.3 · 69 ms | **70.3 · 91 ms** |
+| Avg decode | 30.6 | 38.4 | **93.3** |
+| Prefill | 3,517 tok/s | 5,203 | **9,661** |
+
+- **Quantization** (BF16→NVFP4): ~1.25× decode, **3.2× faster TTFT**, 1.5× prefill, 64% smaller.
+- **Optimization** (NVFP4→+DFlash, AEON container): ~2.4× decode.
+- **Combined:** **3.05× decode · 2.5× TTFT · 2.75× prefill** vs a naive BF16 deploy.
 
 ![Decode by category](benchmarks/decode_by_category.png)
 
@@ -58,6 +62,16 @@ Base capability context (preserved, per the coding-delta check): Terminal-Bench 
 
 ## Responsibility
 Safety refusals removed — **will comply with harmful requests.** For research (alignment, red-teaming, uncensored assistants). You are solely responsible for use; obey applicable law. No warranty.
+
+## ☕ Support the work
+
+[![Tips](https://img.shields.io/badge/%E2%98%95_Tips-Support_the_work-ff5e5b?style=flat)](https://github.com/AEON-7/AEON-7#-support-the-work)
+
+If this release is useful, tips fuel more compute and more open models — thank you. [QR codes on the profile »](https://github.com/AEON-7/AEON-7#-support-the-work)
+- **₿ BTC** — `bc1q09xmzn00q4z3c5raene0f3pzn9d9pvawfm0py4`
+- **Ξ ETH** — `0x1512667F6D61454ad531d2E45C0a5d1fd82D0500`
+- **◎ SOL** — `DgQsjHdAnT5PNLQTNpJdpLS3tYGpVcsHQCkpoiAKsw8t`
+- **ⓜ XMR** — `836XrSKw4R76vNi3QPJ5Fa9ugcyvE2cWmKSPv3AhpTNNKvqP8v5ba9JRL4Vh7UnFNjDz3E2GXZDVVenu3rkZaNdUFhjAvgd`
 
 ## Provenance
 Base [deepreinforce-ai/Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) · driver [abliterix](https://github.com/wuwangzhang1216/abliterix) / [heretic](https://github.com/p-e-w/heretic) · methods grimjim (NPBA), Arditi et al. 2024, FernflowerAI (SSM repair) · build AEON-7.
