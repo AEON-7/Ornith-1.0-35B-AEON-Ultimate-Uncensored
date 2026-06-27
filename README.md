@@ -5,7 +5,6 @@ Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://hu
 | | |
 |---|---|
 | **BF16** | [`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16`](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16) |
-| **FP8** (compressed-tensors, vLLM) | [`AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-FP8`](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-FP8) |
 | License | MIT (inherited from base) |
 
 ## TL;DR
@@ -15,8 +14,7 @@ Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://hu
 
 ## Quickstart (vLLM)
 ```bash
-# FP8 (efficient) — or swap to -BF16
-vllm serve AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-FP8 \
+vllm serve AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16 \
   --served-model-name ornith --max-model-len 262144 \
   --gpu-memory-utilization 0.85 --max-num-batched-tokens 16384 \
   --mamba-cache-dtype float32 --reasoning-parser qwen3 \
@@ -28,7 +26,7 @@ Thinking model (`<think>…</think>` every turn). Sampling: `temperature 0.6, to
 1. **SSM `conv1d` outlier repair** — rescale outlier blocks (layers 36/37) pre-abliteration to prevent coherence collapse.
 2. **Abliteration** — `abliterix` v1.9: grimjim norm-preserving biprojection + **Expert-Granular Abliteration** across all 256 fused experts + shared expert + router suppression; Optuna refusals-vs-KL search. Q/K/V untouched (`attn_output_gate`); GatedDeltaNet/SSM internals + vision tower **not modified**. Recipe: [`config/ornith_35b.toml`](config/ornith_35b.toml).
 3. **Gentle-knee selection** — the lowest-refusal trial was *over-abliterated* (word-salad on real generation). Shipped a 170× lighter expert edit for the same refusal removal, verified coherent.
-4. **Quant** — bf16 export (cloud, fits 141GB), then compressed-tensors **FP8_DYNAMIC** (per-channel weight + per-token dynamic activation), keeping GatedDeltaNet / router / gates / embeddings / lm_head / vision in BF16 (never FP8 the recurrent/routing paths).
+4. **Export** bf16 on a box where 70 GB fits in memory (cloud H200; GB10's 121 GB unified pool cannot edit-in-memory). **Quantization note:** FP8 is *not viable* on this hybrid GatedDeltaNet-MoE via standard vLLM — W8A8 FP8 degrades coherence (FP8 activations hurt the reasoning path); W8A16 weight-only FP8 has no ScaledMM kernel. NVFP4 on Blackwell (B200) is the proven low-precision path for this family.
 
 ## Validation
 | Metric | Base Ornith-1.0-35B | This model |
