@@ -39,7 +39,7 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
 
-▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
+▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (safe settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.6`; includes a temporary KV-page hotfix if vLLM asserts during init)
 
 ## Quickstart (vLLM)
 ```bash
