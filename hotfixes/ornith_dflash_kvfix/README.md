@@ -24,7 +24,7 @@ Build a local patched image:
 Then use the patched image in the QuickStart command:
 
 ```bash
-ORNITH_VLLM_IMAGE=aeon-vllm-ornith-dflash-kvfix:local
+export ORNITH_VLLM_IMAGE=aeon-vllm-ornith-dflash-kvfix:local
 ```
 
 The image build runs a constructor-only verifier for the problematic KV page
