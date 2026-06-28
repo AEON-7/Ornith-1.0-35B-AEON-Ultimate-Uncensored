@@ -1,5 +1,7 @@
 # Ornith-1.0-35B — AEON Ultimate Uncensored
 
+> 🤖 **Deploying with an AI agent?** See [`AGENTS.md`](AGENTS.md) for the optimal container/flags, guardrails, and usage.
+
 Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B), DeepReinforce's SOTA agentic-coding MoE — **refusals removed, capability preserved.**
 
 | | |
