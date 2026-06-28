@@ -3,7 +3,7 @@
 > **Built and tuned for the NVIDIA DGX Spark — GB10 (Blackwell sm_120), 128 GB unified memory.**
 > Optimal deploy: the **NVFP4** build (23.7 GB) + a **DFlash** drafter for **~1.9× single-stream** speedup, served on the AEON vLLM container.
 
-This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.6` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
+This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.7` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
 
 ---
 
@@ -13,35 +13,24 @@ This guide is **specifically for the DGX Spark**. The settings below (especially
 - AEON vLLM container: `ghcr.io/aeon-7/aeon-vllm-ultimate:latest` (has `qwen3_5_moe` + sm_121a + DFlash support — **stock vLLM is not recommended on the Spark for this arch**).
 - ~25 GB disk for the model, ~1 GB for the drafter.
 
-## 2. Download the model (+ DFlash drafter)
+## 2. Download the model + DFlash drafter
 ```bash
 huggingface-cli download AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4 \
   --local-dir ~/models/ornith-nvfp4
-# DFlash drafter: a Qwen3.6-35B-A3B DFlash drafter (Ornith == Qwen3.6-35B-A3B base, so it is compatible)
-#   place it at ~/models/ornith-dflash-drafter
+# Recommended drafter — all-full-attention, drop-in, NO patch needed:
+huggingface-cli download AEON-7/AEON-DFlash-Qwen3.6-35B-A3B \
+  --local-dir ~/models/ornith-dflash-drafter
 ```
 
-### Temporary KV-page hotfix
-If the container fails during engine init with `AssertionError` in
-`unify_kv_cache_spec_page_size`, build the local hotfix image before serving:
-
-```bash
-./hotfixes/ornith_dflash_kvfix/build_image.sh
-export ORNITH_VLLM_IMAGE=aeon-vllm-ornith-dflash-kvfix:local
-```
-
-This is a vLLM KV-cache page-size fix for the Ornith GatedDeltaNet layers plus
-the DFlash drafter. It does not change model weights.
+> **Drafter choice.** Use the **AEON DFlash** drafter above — it's all-full-attention, so it serves on the stock AEON image with **no patch**, and benchmarks slightly *higher acceptance* (3.71 vs 3.35 tokens/step) than the sliding-window `z-lab/Qwen3.6-35B-A3B-DFlash` drafter. The z-lab drafter also works but its SWA layers trip a KV page-size assert on this hybrid arch (see [issue #1](https://github.com/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored/issues/1)) — to use it, build the hotfix image in [`hotfixes/ornith_dflash_kvfix/`](hotfixes/ornith_dflash_kvfix/) (thanks @newjordan) and set `ghcr.io/...` → that image.
 
 ## 3. Serve — optimal DGX Spark settings
 ```bash
-ORNITH_VLLM_IMAGE="${ORNITH_VLLM_IMAGE:-ghcr.io/aeon-7/aeon-vllm-ultimate:latest}"
-
 docker run -d --name ornith --gpus all --ipc=host --net=host \
   -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 \
   -v ~/models/ornith-nvfp4:/model:ro \
   -v ~/models/ornith-dflash-drafter:/drafter:ro \
-  --entrypoint vllm "${ORNITH_VLLM_IMAGE}" \
+  --entrypoint vllm ghcr.io/aeon-7/aeon-vllm-ultimate:latest \
   serve /model --served-model-name ornith \
   --quantization compressed-tensors \
   --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":6}' \
