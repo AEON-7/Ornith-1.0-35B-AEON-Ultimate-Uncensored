@@ -33,6 +33,10 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Decode by category](benchmarks/decode_by_category.png)
 
+**Concurrency** (NVFP4, `max-num-seqs 64`): DFlash wins single-stream 1.78× (68.5 vs 38.5 tok/s @ c=1) and stays neutral-to-ahead under load — at c=32 both converge to ~540–570 tok/s aggregate as the GPU saturates. Leave DFlash on.
+
+![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
+
 ▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
 
 ## Quickstart (vLLM)

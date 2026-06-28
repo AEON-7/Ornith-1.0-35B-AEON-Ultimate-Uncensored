@@ -73,6 +73,17 @@ Same Spark, same prompts, three stacks — so you can see the **quantization** w
 - **Optimization** (NVFP4 → + DFlash on the AEON container): ~**2.4× decode** (DFlash; biggest on math/reasoning).
 - **Combined vs a naive BF16 deploy:** **3.05× decode · 2.5× TTFT · 2.75× prefill.** Largest at c=1; tapers under heavy concurrency.
 
+### Concurrency / throughput (NVFP4, `max-num-seqs 64`)
+
+| Concurrency | NVFP4 plain | NVFP4 + DFlash n=6 |
+|---|---|---|
+| c=1 (per user) | 38.5 tok/s | **68.5 (1.78×)** |
+| c=8 | 222.9 | 194.2 |
+| c=16 | 369.4 | **417.8** |
+| c=32 | 542.8 | **570.1** |
+
+DFlash wins single-stream by 1.78× and stays neutral-to-ahead under load (both converge to ~540–570 tok/s aggregate at c=32 as the GPU saturates). **Leave DFlash on** — large interactive win, no throughput penalty. For pure batch throughput, raise `--max-num-seqs` (used 64 here).
+
 ## Notes
 - **Long-running services:** DFlash drafter acceptance can decay over many hours of continuous traffic; restarting the container restores it (or run a periodic health-check that does).
 - **Uncensored:** safety refusals are removed — you are responsible for use; obey applicable law.
