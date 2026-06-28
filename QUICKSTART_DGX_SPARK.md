@@ -3,7 +3,7 @@
 > **Built and tuned for the NVIDIA DGX Spark — GB10 (Blackwell sm_120), 128 GB unified memory.**
 > Optimal deploy: the **NVFP4** build (23.7 GB) + a **DFlash** drafter for **~1.9× single-stream** speedup, served on the AEON vLLM container.
 
-This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.7` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
+This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.6` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
 
 ---
 
@@ -21,13 +21,27 @@ huggingface-cli download AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-NVFP4 \
 #   place it at ~/models/ornith-dflash-drafter
 ```
 
+### Temporary KV-page hotfix
+If the container fails during engine init with `AssertionError` in
+`unify_kv_cache_spec_page_size`, build the local hotfix image before serving:
+
+```bash
+./hotfixes/ornith_dflash_kvfix/build_image.sh
+export ORNITH_VLLM_IMAGE=aeon-vllm-ornith-dflash-kvfix:local
+```
+
+This is a vLLM KV-cache page-size fix for the Ornith GatedDeltaNet layers plus
+the DFlash drafter. It does not change model weights.
+
 ## 3. Serve — optimal DGX Spark settings
 ```bash
+ORNITH_VLLM_IMAGE="${ORNITH_VLLM_IMAGE:-ghcr.io/aeon-7/aeon-vllm-ultimate:latest}"
+
 docker run -d --name ornith --gpus all --ipc=host --net=host \
   -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 \
   -v ~/models/ornith-nvfp4:/model:ro \
   -v ~/models/ornith-dflash-drafter:/drafter:ro \
-  --entrypoint vllm ghcr.io/aeon-7/aeon-vllm-ultimate:latest \
+  --entrypoint vllm "${ORNITH_VLLM_IMAGE}" \
   serve /model --served-model-name ornith \
   --quantization compressed-tensors \
   --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":6}' \
