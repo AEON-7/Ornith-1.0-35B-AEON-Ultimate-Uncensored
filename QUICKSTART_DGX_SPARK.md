@@ -31,7 +31,7 @@ docker run -d --name ornith --gpus all --ipc=host --net=host \
   serve /model --served-model-name ornith \
   --quantization compressed-tensors \
   --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":6}' \
-  --gpu-memory-utilization 0.7 \
+  --gpu-memory-utilization 0.6 \
   --max-model-len 262144 --max-num-seqs 16 --max-num-batched-tokens 16384 \
   --mamba-cache-dtype float32 \
   --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder \
@@ -41,8 +41,9 @@ docker run -d --name ornith --gpus all --ipc=host --net=host \
 ## 4. Why these settings (DGX Spark specifics)
 | Flag | Value | Why on the Spark |
 |---|---|---|
-| `--gpu-memory-utilization` | **0.7** | The Spark's 128 GB is **unified** (CPU+GPU share it). **0.7** leaves headroom for the OS and **co-located services** (e.g. voice ASR/TTS) and avoids unified-memory thrash. *(Hard ceiling is 0.88; 0.7 is the safe production value when other services run. If the Spark is dedicated to this model alone, you can raise toward 0.85.)* |
-| `--speculative-config dflash … n=6` | **n=6** | Optimal single-stream throughput (peaks at 6; higher n wastes draft/verify on low-acceptance positions). The Qwen3.6-35B-A3B drafter works because Ornith is a light RL post-train of that base. |
+| `--gpu-memory-utilization` | **0.6** | The Spark's 128 GB is **unified** (CPU+GPU share it). **0.6** is the validated-stable value with DFlash on — it leaves ~41 GB headroom for the OS, co-located services, *and* DFlash's speculative-verify buffers (which are **not** fully counted in this budget — see Stability below). 0.7 is fine on a dedicated box; do not exceed ~0.7 with DFlash. |
+| `--max-num-seqs` | **16** ⚠️ | **Hard cap on the Spark with DFlash.** DFlash's per-sequence draft+verify buffers scale with `max-num-seqs`; at 32–64 they spike past the memory budget and can exhaust the unified pool → **hard box crash**. 16 is stable (peak 80/121 GB). For higher batch throughput, **disable DFlash** rather than raising this. |
+| `--speculative-config dflash … n=6` | **n=6** | Optimal single-stream (peaks at 6; higher n wastes draft/verify on low-acceptance positions). Validated stable at `max-num-seqs 16` (n barely affects peak memory there). The Qwen3.6-35B-A3B drafter works because Ornith is a light RL post-train of that base. |
 | `--mamba-cache-dtype` | **float32** | Precision for the GatedDeltaNet (SSM) recurrent state. |
 | `--quantization` | **compressed-tensors** | The NVFP4 build is `nvfp4-pack-quantized`. |
 | *(omit)* `--kv-cache-dtype fp8` | — | The vision tower forces **BF16 KV** (FP8 KV is incompatible with the non-causal vision/DFlash path). |
@@ -73,16 +74,17 @@ Same Spark, same prompts, three stacks — so you can see the **quantization** w
 - **Optimization** (NVFP4 → + DFlash on the AEON container): ~**2.4× decode** (DFlash; biggest on math/reasoning).
 - **Combined vs a naive BF16 deploy:** **3.05× decode · 2.5× TTFT · 2.75× prefill.** Largest at c=1; tapers under heavy concurrency.
 
-### Concurrency / throughput (NVFP4, `max-num-seqs 64`)
+### Concurrency / throughput (NVFP4 + DFlash n=6, `max-num-seqs 16` — the safe envelope)
 
-| Concurrency | NVFP4 plain | NVFP4 + DFlash n=6 |
-|---|---|---|
-| c=1 (per user) | 38.5 tok/s | **68.5 (1.78×)** |
-| c=8 | 222.9 | 194.2 |
-| c=16 | 369.4 | **417.8** |
-| c=32 | 542.8 | **570.1** |
+| Concurrency | aggregate tok/s |
+|---|---|
+| c=1 (per user) | **70** |
+| c=8 | 203 |
+| c=16 | **456** |
 
-DFlash wins single-stream by 1.78× and stays neutral-to-ahead under load (both converge to ~540–570 tok/s aggregate at c=32 as the GPU saturates). **Leave DFlash on** — large interactive win, no throughput penalty. For pure batch throughput, raise `--max-num-seqs` (used 64 here).
+Validated **stable through c=16** with ~41 GB unified-memory headroom (peak **80 / 121 GB**, zero watchdog kills). DFlash wins single-stream 1.78× (70 vs 39 tok/s) and carries no penalty up to the seqs=16 ceiling.
+
+> ⚠️ **Stability — do not raise `--max-num-seqs` above ~16 with DFlash on the Spark.** DFlash's per-sequence speculative-verify buffers are **not** fully accounted by `--gpu-memory-utilization`; at a cap of 32–64 they spike past the budget and exhaust the 121 GB **unified** pool, which **hard-crashes the whole box** (kernel `NVRM … NV_ERR_NO_MEMORY`). If you need higher batch throughput, run **plain NVFP4 (no DFlash)** — it scales to higher concurrency safely — rather than raising `max-num-seqs` with DFlash on.
 
 ## Notes
 - **Long-running services:** DFlash drafter acceptance can decay over many hours of continuous traffic; restarting the container restores it (or run a periodic health-check that does).
