@@ -1,7 +1,5 @@
 # Ornith-1.0-35B — AEON Ultimate Uncensored
 
-![AEON Ornith — Supreme Being of the Digital Cosmos](cartridge.jpg)
-
 Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B), DeepReinforce's SOTA agentic-coding MoE — **refusals removed, capability preserved.**
 
 | | |
@@ -41,7 +39,7 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
 
-▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (safe settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.6`; includes a temporary KV-page hotfix if vLLM asserts during init)
+▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
 
 ## Quickstart (vLLM)
 ```bash
@@ -68,8 +66,12 @@ Thinking model (`<think>…</think>` every turn). Sampling: `temperature 0.6, to
 
 Base capability context (preserved, per the coding-delta check): Terminal-Bench 2.1 = 64.2, SWE-bench Verified = 75.6.
 
-## Responsibility
-Safety refusals removed — **will comply with harmful requests.** For research (alignment, red-teaming, uncensored assistants). You are solely responsible for use; obey applicable law. No warranty.
+## User Responsibility & Arbitration Clause
+
+This is an uncensored, **agentic** model — safety refusals are removed (it will comply with harmful requests), and its outputs are routinely tool calls and code that downstream systems *execute*. **You, not the model, are the safety layer.** By using it you accept: **sole responsibility** for all prompts, outputs, and downstream actions and any resulting harm; that it is provided **"AS IS"** with **no warranty** of any kind; that you must comply with **all applicable laws** in every relevant jurisdiction; that you will implement your own **downstream safety layers** (input/output filtering, content moderation, audit logging, access controls, and human-in-the-loop review — especially for agentic/autonomous-execution pipelines); **no endorsement** of any output by the authors; and **binding individual arbitration**, **indemnification**, and severability terms.
+
+**Read the full, governing [User Responsibility & Arbitration Clause](https://huggingface.co/AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16#user-responsibility--arbitration-clause) on the BF16 model card before downloading or deploying.**
+
 
 ## ☕ Support the work
 
@@ -82,4 +84,4 @@ If this release is useful, tips fuel more compute and more open models — thank
 - **ⓜ XMR** — `836XrSKw4R76vNi3QPJ5Fa9ugcyvE2cWmKSPv3AhpTNNKvqP8v5ba9JRL4Vh7UnFNjDz3E2GXZDVVenu3rkZaNdUFhjAvgd`
 
 ## Provenance
-Cover art by [@newjordan](https://github.com/newjordan) (used with permission). Base [deepreinforce-ai/Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) · driver [abliterix](https://github.com/wuwangzhang1216/abliterix) / [heretic](https://github.com/p-e-w/heretic) · methods grimjim (NPBA), Arditi et al. 2024, FernflowerAI (SSM repair) · build AEON-7.
+Base [deepreinforce-ai/Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) · driver [abliterix](https://github.com/wuwangzhang1216/abliterix) / [heretic](https://github.com/p-e-w/heretic) · methods grimjim (NPBA), Arditi et al. 2024, FernflowerAI (SSM repair) · build AEON-7.
