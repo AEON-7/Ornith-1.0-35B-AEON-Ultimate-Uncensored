@@ -41,6 +41,10 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
 
+**Prefix caching** (`--enable-prefix-caching`, on by default) skips re-prefilling shared context — up to **16.6× faster prefill** at ~10k context (multi-turn / agentic / shared system prompts); cache-hit prefill stays ~flat (~100–200 ms) while cold prefill grows to 2.6 s @ 14.6k. Validated coherent (cache-hit long-context answer == full-prefill answer). ▶ [animation](benchmarks/ornith_prefix_cache_boost.mp4)
+
+![Prefix caching scaling](benchmarks/prefix_cache_scaling.png)
+
 ▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
 
 ## Quickstart (vLLM)
