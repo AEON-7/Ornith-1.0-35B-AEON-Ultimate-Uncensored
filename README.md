@@ -33,7 +33,9 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Decode by category](benchmarks/decode_by_category.png)
 
-**Concurrency** (NVFP4, `max-num-seqs 64`): DFlash wins single-stream 1.78× (68.5 vs 38.5 tok/s @ c=1) and stays neutral-to-ahead under load — at c=32 both converge to ~540–570 tok/s aggregate as the GPU saturates. Leave DFlash on.
+**Concurrency** (NVFP4 + DFlash n=6, `max-num-seqs 16` — the safe envelope): c=1 **70 tok/s** (1.78× vs plain 39), c=8 203, c=16 **456** aggregate; stable, peak 80/121 GB.
+
+> ⚠️ **DFlash + Spark unified memory:** keep `--max-num-seqs ≤ 16` with DFlash. Its speculative-verify buffers aren't fully counted by `--gpu-memory-utilization`; at a cap of 32–64 they exhaust the 121 GB unified pool and **hard-crash the box** (kernel `NVRM NV_ERR_NO_MEMORY`). For higher batch throughput, run **plain NVFP4 (no DFlash)** instead of raising the cap.
 
 ![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
 
