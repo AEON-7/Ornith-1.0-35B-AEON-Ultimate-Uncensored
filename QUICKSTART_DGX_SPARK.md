@@ -27,19 +27,23 @@ huggingface-cli download AEON-7/AEON-DFlash-Qwen3.6-35B-A3B \
 ## 3. Serve — optimal DGX Spark settings
 ```bash
 docker run -d --name ornith --gpus all --ipc=host --net=host \
-  -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 \
+  -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 -e VLLM_ENABLE_CUDA_COMPATIBILITY=0 \
   -v ~/models/ornith-nvfp4:/model:ro \
   -v ~/models/ornith-dflash-drafter:/drafter:ro \
   --entrypoint vllm ghcr.io/aeon-7/aeon-vllm-ultimate:latest \
-  serve /model --served-model-name ornith \
+  serve /model --served-model-name ornith aeon-ultimate aeon-fast aeon-deep \
   --quantization compressed-tensors \
   --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":6}' \
   --gpu-memory-utilization 0.6 \
   --max-model-len 262144 --max-num-seqs 16 --max-num-batched-tokens 16384 \
   --mamba-cache-dtype float32 \
   --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder \
-  --enable-prefix-caching --trust-remote-code
+  --limit-mm-per-prompt '{"image":4,"video":2}' --mm-encoder-tp-mode data \
+  --attention-backend flash_attn \
+  --enable-chunked-prefill --enable-prefix-caching --trust-remote-code
 ```
+
+> **Aliases for a clean cutover.** `--served-model-name` takes a list — every name resolves to this one model. List whatever model name your existing clients already request (e.g. replacing another model: `--served-model-name ornith my-previous-model-name aeon-ultimate`) and they switch to Ornith with **zero client-side changes** — just point the names at the model.
 
 ## 4. Why these settings (DGX Spark specifics)
 | Flag | Value | Why on the Spark |
@@ -51,6 +55,11 @@ docker run -d --name ornith --gpus all --ipc=host --net=host \
 | `--quantization` | **compressed-tensors** | The NVFP4 build is `nvfp4-pack-quantized`. |
 | *(omit)* `--kv-cache-dtype fp8` | — | The vision tower forces **BF16 KV** (FP8 KV is incompatible with the non-causal vision/DFlash path). |
 | `--max-model-len` | 262144 | Full 256K context fits thanks to NVFP4's small footprint. Lower it to free KV memory if you don't need long context. |
+| `--attention-backend` | **flash_attn** | **Required.** Vision (non-causal) *and* DFlash (non-causal block-verify) both need FA2; letting vLLM auto-select can pick a backend that can't serve them → engine-init crash. |
+| `--limit-mm-per-prompt '{"image":4,"video":2}'` + `--mm-encoder-tp-mode data` | vision | Ornith is multimodal — these enable image/video inputs. |
+| `--reasoning-parser qwen3` + `--enable-auto-tool-choice --tool-call-parser qwen3_coder` | parsers | Thinking-block parsing + function/tool calling. Keep both — universally needed for chat + agentic/tool use. |
+| `--enable-chunked-prefill` | on | Smooth long-context prefill; pairs with prefix caching. |
+| `--served-model-name` | aliases | List every model name your clients already request, all pointing at this one model (see the cutover note above). |
 
 ## 5. Smoke test
 ```bash

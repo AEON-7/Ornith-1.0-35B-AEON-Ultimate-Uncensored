@@ -34,19 +34,23 @@ huggingface-cli download AEON-7/AEON-DFlash-Qwen3.6-35B-A3B --local-dir ~/models
 
 ```bash
 docker run -d --name ornith --gpus all --ipc=host --net=host \
-  -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 \
+  -e TORCH_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a -e VLLM_USE_FLASHINFER_SAMPLER=1 -e VLLM_ENABLE_CUDA_COMPATIBILITY=0 \
   -v ~/models/ornith-nvfp4:/model:ro \
   -v ~/models/ornith-dflash-drafter:/drafter:ro \
   --entrypoint vllm ghcr.io/aeon-7/aeon-vllm-ultimate:latest \
-  serve /model --served-model-name ornith \
+  serve /model --served-model-name ornith aeon-ultimate aeon-fast aeon-deep \
   --quantization compressed-tensors \
   --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":6}' \
   --gpu-memory-utilization 0.6 \
   --max-model-len 262144 --max-num-seqs 16 --max-num-batched-tokens 16384 \
   --mamba-cache-dtype float32 \
   --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder \
-  --enable-prefix-caching --trust-remote-code
+  --limit-mm-per-prompt '{"image":4,"video":2}' --mm-encoder-tp-mode data \
+  --attention-backend flash_attn \
+  --enable-chunked-prefill --enable-prefix-caching --trust-remote-code
 ```
+
+> **Aliases for a clean cutover.** `--served-model-name` accepts a list — every name maps to this one model. Replacing another model? List the name your existing clients already request (e.g. `--served-model-name ornith my-previous-model-name aeon-ultimate`) so they switch to Ornith with **zero client-side reconfiguration** — just point the names at the model.
 
 | Flag | Why |
 |---|---|
@@ -55,9 +59,13 @@ docker run -d --name ornith --gpus all --ipc=host --net=host \
 | `--gpu-memory-utilization 0.6` | Validated-stable with DFlash; leaves headroom for the OS + co-located services + DFlash's *un-budgeted* verify buffers. Never exceed ~0.7 with DFlash; hard ceiling 0.88. |
 | `--max-num-seqs 16` | **HARD CAP with DFlash on the Spark** (see guardrails). |
 | `--mamba-cache-dtype float32` | GatedDeltaNet recurrent-state precision. |
+| `--attention-backend flash_attn` | **Required.** Vision (non-causal) and DFlash (non-causal block-verify) both need FA2; auto-selection can pick a backend that can't serve them → engine-init crash. |
+| `--limit-mm-per-prompt '{"image":4,"video":2}'` + `--mm-encoder-tp-mode data` | Enables vision (image/video) inputs — Ornith is multimodal. |
+| `--enable-chunked-prefill` | Smooth long-context prefill; pairs with prefix caching. Default-on in v1; keep explicit. |
 | `--enable-prefix-caching` | ~**12.6× faster prefill on repeated context** (multi-turn / agentic / shared system prompts). Default-on in the image; keep it. |
 | `--reasoning-parser qwen3` | Parses the `<think>` block. |
 | `--enable-auto-tool-choice --tool-call-parser qwen3_coder` | Tool/function calling. |
+| `--served-model-name ornith …` | List every model name your clients already request → transparent cutover (see note above). |
 | *(do NOT add)* `--kv-cache-dtype fp8` | The vision tower + DFlash force **BF16 KV**; FP8 KV crashes at init. |
 
 ## 4. Verify it serves
