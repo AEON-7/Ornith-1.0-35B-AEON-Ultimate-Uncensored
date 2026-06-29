@@ -3,7 +3,7 @@
 > **Built and tuned for the NVIDIA DGX Spark — GB10 (Blackwell sm_120), 128 GB unified memory.**
 > Optimal deploy: the **NVFP4** build (23.7 GB) + a **DFlash** drafter for **~1.9× single-stream** speedup, served on the AEON vLLM container.
 
-This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.7` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
+This guide is **specifically for the DGX Spark**. The settings below (especially `--gpu-memory-utilization 0.6` and `--mamba-cache-dtype float32`) are chosen for the Spark's unified-memory GB10; other GPUs may want different values.
 
 ---
 
