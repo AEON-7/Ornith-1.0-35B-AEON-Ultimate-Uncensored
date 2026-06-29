@@ -1,7 +1,5 @@
 # Ornith-1.0-35B — AEON Ultimate Uncensored
 
-> 🤖 **Deploying with an AI agent?** See [`AGENTS.md`](AGENTS.md) for the optimal container/flags, guardrails, and usage.
-
 Uncensored / abliterated build of [`deepreinforce-ai/Ornith-1.0-35B`](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B), DeepReinforce's SOTA agentic-coding MoE — **refusals removed, capability preserved.**
 
 | | |
@@ -41,19 +39,18 @@ Three stacks on the same Spark, so the **quantization** win and the **optimizati
 
 ![Throughput vs concurrency](benchmarks/throughput_vs_concurrency.png)
 
-**Prefix caching** (`--enable-prefix-caching`, on by default) skips re-prefilling shared context — up to **16.6× faster prefill** at ~10k context (multi-turn / agentic / shared system prompts); cache-hit prefill stays ~flat (~100–200 ms) while cold prefill grows to 2.6 s @ 14.6k. Validated coherent (cache-hit long-context answer == full-prefill answer). ▶ [animation](benchmarks/ornith_prefix_cache_boost.mp4)
-
-![Prefix caching scaling](benchmarks/prefix_cache_scaling.png)
-
-▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.7`)
+▶ **[Benchmark animation (MP4)](benchmarks/ornith_nvfp4_dflash_benchmark.mp4)** · 📖 **[DGX Spark QuickStart](QUICKSTART_DGX_SPARK.md)** (optimal settings: NVFP4 + DFlash n=6, `--gpu-memory-utilization 0.6`, vision + tool-calling flags)
 
 ## Quickstart (vLLM)
 ```bash
 vllm serve AEON-7/Ornith-1.0-35B-AEON-Ultimate-Uncensored-BF16 \
   --served-model-name ornith --max-model-len 262144 \
   --gpu-memory-utilization 0.85 --max-num-batched-tokens 16384 \
-  --mamba-cache-dtype float32 --reasoning-parser qwen3 \
-  --enable-prefix-caching --trust-remote-code
+  --mamba-cache-dtype float32 \
+  --reasoning-parser qwen3 --enable-auto-tool-choice --tool-call-parser qwen3_coder \
+  --limit-mm-per-prompt '{"image":4,"video":2}' --mm-encoder-tp-mode data \
+  --attention-backend flash_attn \
+  --enable-chunked-prefill --enable-prefix-caching --trust-remote-code
 ```
 Thinking model (`<think>…</think>` every turn). Sampling: `temperature 0.6, top_p 0.95, top_k 20`. Vision intact (BF16 KV on vision deploys). See [`serve_ornith.sh`](serve_ornith.sh).
 

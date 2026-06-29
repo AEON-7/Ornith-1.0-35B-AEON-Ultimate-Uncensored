@@ -85,8 +85,11 @@ SERVE_ARGS=(
   --served-model-name "$SERVED_NAME"
   --dtype "$DTYPE"
   --reasoning-parser qwen3
-  --tool-call-parser qwen3_xml
+  --tool-call-parser qwen3_coder
   --enable-auto-tool-choice
+  --limit-mm-per-prompt '{"image":4,"video":2}'
+  --mm-encoder-tp-mode data
+  --attention-backend flash_attn
   --mamba-cache-dtype float32
   --max-model-len "$MAX_LEN"
   --max-num-batched-tokens 16384
